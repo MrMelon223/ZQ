@@ -40,6 +40,8 @@ typedef struct {
 
 void cursor_input(ZQcamera*, dim_t, double, double);
 
-void controller_input(ZQcamera*, dim_t, GLFWgamepadstate&);
+void controller_input(ZQcamera*, dim_t);
+
+void controller_view(ZQcamera*, float, float);
 
 #endif

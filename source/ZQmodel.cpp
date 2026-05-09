@@ -108,6 +108,8 @@ d_ZQmodel_c ZQmodel::generate_model() {
 
 #endif
 
+const ulong_t MAX_BONE_CHILDREN = 8;
+
 void ZQmodel::load_data(const tinygltf::Model m) {
 	this->aabb[0] = vec3_t(0.0f);
 	this->aabb[1] = vec3_t(0.0f);
@@ -278,9 +280,7 @@ void ZQmodel::load_data(const tinygltf::Model m) {
 				else if (triAcc.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) {
 					const uint32_t* tris = reinterpret_cast<const uint32_t*>(triBuffPtr);
 
-					this->tCount = triAcc.count;
-
-					for (size_t i = 0; i < this->tCount; i++) {
+					for (size_t i = 0; i < triAcc.count; i++) {
 						uint32_t x = tris[i];// / 3;
 						//uint32_t y = tris[i * 3 + 1];// / 3;
 						//uint32_t z = tris[i * 3 + 2];// / 3;
@@ -317,9 +317,9 @@ void ZQmodel::load_data(const tinygltf::Model m) {
 						this->tNormals.push_back(c);*/
 					}
 				}
-				this->tCount = this->tIndices.size() / 3;
+				this->tCount = this->tIndices.size();
 
-				for (ulong_t j = 0; j < this->tCount; j++) {
+				for (ulong_t j = 0; j < this->tCount / 3; j++) {
 
 					uint32_t x = this->tIndices[j * 3];
 					uint32_t y = this->tIndices[j * 3 + 1];
@@ -385,27 +385,27 @@ d_ZQmodel ZQmodel::to_gpu() {
 	r.t_count = this->tCount;
 
 	glBindBuffer(GL_ARRAY_BUFFER, r.vPos);
-	glBufferData(GL_ARRAY_BUFFER, r.v_count * sizeof(vec3_t), this->vPositions.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, this->vPositions.size() * sizeof(vec3_t), this->vPositions.data(), GL_STATIC_DRAW);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(vec3_t), (void*)0);
 	glEnableVertexAttribArray(0);
 
 	glBindBuffer(GL_ARRAY_BUFFER, r.vNorms);
-	glBufferData(GL_ARRAY_BUFFER, r.v_count * sizeof(vec3_t), this->vNormals.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, this->vNormals.size() * sizeof(vec3_t), this->vNormals.data(), GL_STATIC_DRAW);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(vec3_t), (void*)0);
 	glEnableVertexAttribArray(1);
 
 	glBindBuffer(GL_ARRAY_BUFFER, r.vUVs);
-	glBufferData(GL_ARRAY_BUFFER, r.v_count * sizeof(vec2_t), this->vUVs.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, this->vUVs.size() * sizeof(vec2_t), this->vUVs.data(), GL_STATIC_DRAW);
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(vec2_t), (void*)0);
 	glEnableVertexAttribArray(2);
 	
 	glBindBuffer(GL_ARRAY_BUFFER, r.tNorms);
-	glBufferData(GL_ARRAY_BUFFER, r.t_count / 3 * sizeof(vec3_t), this->tNormals.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, this->tNormals.size() * sizeof(vec3_t), this->tNormals.data(), GL_STATIC_DRAW);
 	glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(vec3_t), (void*)0);
 	glEnableVertexAttribArray(3);
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, r.tIdxs);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, r.t_count * sizeof(uint_t), this->tIndices.data(), GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, this->tIndices.size() * sizeof(uint_t), this->tIndices.data(), GL_STATIC_DRAW);
 	//glVertexAttribIPointer(4, 3, GL_UNSIGNED_INT, sizeof(tri_t), (void*)0);
 	//glEnableVertexAttribArray(4);
 

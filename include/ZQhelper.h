@@ -29,7 +29,7 @@ void cuCheck(cudaError_t&);
 #include <vector>
 
 #include "ZQvecs.h"
-#include <GLFW/glfw3.h>
+#include <SDL2/SDL.h>
 #include <sqlite3.h>
 #include <tiny_gltf.h>
 

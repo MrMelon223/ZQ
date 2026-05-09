@@ -1,7 +1,8 @@
 	// main.cpp
+#define SDL_MAIN_HANDLED
 #include "../include/ZQapp.h"
 
-int main() {
+int main(int argc, char* argv[]) {
 
 	ZQcompute* c = new ZQcompute();
 

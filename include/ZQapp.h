@@ -21,7 +21,7 @@ namespace PlayerCtrl {
 	extern std::queue<KBdUse> keyboard_queue;
 }
 
-static void key_callback(GLFWwindow*, int, int, int, int);
+//static void key_callback(GLFWwindow*, int, int, int, int);
 
 class ZQapp {
 protected:
@@ -34,13 +34,15 @@ protected:
 	bool fullscreen;
 	short_t monitor;
 
-	GLFWwindow* win;
+	SDL_Window* win;
 
 	bool loop;
 
 	ZQcamera camera;
 
 	void process_KBdUse(KBdUse);
+
+	void process_CtrlEvent(SDL_Event);
 
 	void empty_CtrlQueues();
 
@@ -56,6 +58,8 @@ protected:
 	float last_time;
 
 	ZQcontrol control_type;
+	SDL_Joystick* joystick_left;
+	SDL_Joystick* joystick_right;
 public:
 	ZQapp(ZQcompute*, std::string, dim_t, bool, short_t);
 

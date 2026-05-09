@@ -86,6 +86,29 @@ struct ZQasset_static_instance {
 
 ZQasset_static make_ZQasset(std::string, float, std::string, std::string, std::string, std::string, std::string);
 
+extern const ulong_t MAX_BONE_CHILDREN;
+
+typedef struct {
+	std::string name;
+
+	vec3_t end;
+
+	std::vector<uint_t> vertex_idxs;
+
+	long_t children[8];
+	uchar_t children_count;
+} ZQbone_t;
+
+class ZQskeleton {
+protected:
+	std::string name;
+
+	vec3_t origin;
+	std::vector<ZQbone_t> bones;
+public:
+	ZQskeleton(std::string);
+};
+
 class ZQmodel {
 protected:
 	std::string filepath;
@@ -133,5 +156,6 @@ public:
 	d_ZQmodel_c generate_model();
 #endif
 };
+
 
 #endif

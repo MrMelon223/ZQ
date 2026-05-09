@@ -28,11 +28,11 @@ int Playerside::shader_callback(void* data, int argc, char** argv, char** azColN
 
 std::queue<KBdUse> PlayerCtrl::keyboard_queue;
 
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode) {
+/*void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode) {
 	KBdUse u = { key, scancode, action, mode };
 
 	PlayerCtrl::keyboard_queue.push(u);
-}
+}*/
 
 
 void ZQapp::load_shaders() {
@@ -187,7 +187,7 @@ void ZQapp::load_textures() {
 }
 
 void ZQapp::process_KBdUse(KBdUse u) {
-	if (u.key == GLFW_KEY_ESCAPE && u.action == GLFW_PRESS) {
+	/*if (u.key == GLFW_KEY_ESCAPE && u.action == GLFW_PRESS) {
 		this->loop = false;
 	}
 	if (u.key == GLFW_KEY_W && u.action == GLFW_PRESS) {
@@ -201,6 +201,12 @@ void ZQapp::process_KBdUse(KBdUse u) {
 	}
 	if (u.key == GLFW_KEY_A && u.action == GLFW_PRESS) {
 		this->camera.position -= dvec3_t(glm::normalize(-glm::cross(glm::radians(this->camera.rotation) / 2.0f * 3.1415f, glm::radians(this->camera.rotation) / 2.0f * 3.1415f))) * (double)this->last_time;
+	}*/
+}
+
+void ZQapp::process_CtrlEvent(SDL_Event e) {
+	if (e.type == SDL_QUIT) {
+		this->loop = false;
 	}
 }
 
@@ -257,7 +263,7 @@ bool isBoxInFrustum(const std::vector<glm::vec4>& planes, glm::vec3 min, glm::ve
 std::vector<ZQasset_static_instance> ZQapp::compute_visibility(ZQcamera* cam) {
 	std::vector<ZQasset_static_instance> r = std::vector<ZQasset_static_instance>();
 
-	mat4_t persp = glm::perspective(cam->fov.x, cam->fov.x / cam->fov.y, 0.01f, 100.0f);
+	mat4_t persp = glm::perspective(cam->fov.x, cam->fov.x / cam->fov.y, 0.01f, 1000.0f);
 
 	std::vector<vec4_t> view_planes = getFrustumPlanes(persp);
 
@@ -266,8 +272,8 @@ std::vector<ZQasset_static_instance> ZQapp::compute_visibility(ZQcamera* cam) {
 		ZQasset_static* asset = &Playerside::static_assets[inst->asset_idx];
 		ZQmodel* model = &Playerside::h_models[asset->lod0_idx];
 
-		vec3_t aabb_max = model->get_aabb_high();
-		vec3_t aabb_min = model->get_aabb_low();
+		vec3_t aabb_max = vec3_t(cam->position) - vec3_t(inst->position) + model->get_aabb_high();
+		vec3_t aabb_min = vec3_t(cam->position) - vec3_t(inst->position) + model->get_aabb_low();
 
 		if (isBoxInFrustum(view_planes, aabb_min, aabb_max)) {
 			if (r.empty()) {
@@ -328,46 +334,57 @@ void ZQapp::init() {
 #ifdef CUDA_RT
 	cudaSetDevice(0);
 #endif
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-	glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
-	glfwWindowHint(GLFW_FLOATING, GL_TRUE);
+	SDL_SetMainReady();
 
-	if (!glfwInit()) {
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0) {
 #ifdef DEBUG
-		std::cout << "Cannot initialize GLFW!" << std::endl;
+		std::cout << "Cannot initialize SDL!" << std::endl;
 #endif
 		return;
 	}
 
-	if (this->fullscreen) {
-		int_t monitor_count = 0;
-		GLFWmonitor** monitors = glfwGetMonitors(&monitor_count);
-		if (monitor < monitor_count) {
-			const GLFWvidmode* mode = glfwGetVideoMode(monitors[monitor]);
-			this->win = glfwCreateWindow(this->dims.x, this->dims.y, this->name.c_str(), monitors[monitor], NULL);
-		}
-		else {
-			const GLFWvidmode* mode = glfwGetVideoMode(monitors[0]);
-			this->win = glfwCreateWindow(this->dims.x, this->dims.y, this->name.c_str(), monitors[0], NULL);
-		}
-	}
-	else {
-		this->win = glfwCreateWindow(this->dims.x, this->dims.y, this->name.c_str(), NULL, NULL);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+
+	if (SDL_NumJoysticks() < 1) {
+#ifdef DEBUG
+		std::cout << "No joysticks connected!" << std::endl;
+#endif
+		return;
 	}
 
-	if (!this->win) {
+	if (SDL_NumJoysticks() < 2) {
+#ifdef DEBUG
+		std::cout << "Not enough joysticks!" << std::endl;
+#endif
+		return;
+	}
+
+	joystick_left = SDL_JoystickOpen(0);
+	joystick_right = SDL_JoystickOpen(1);
+
+	if (this->fullscreen) {
+		this->win = SDL_CreateWindow(this->name.c_str(), SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 0, 0, SDL_WINDOW_FULLSCREEN_DESKTOP);
+	}
+	else {
+		this->win = SDL_CreateWindow(this->name.c_str(), SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, this->dims.x, this->dims.y, 0);
+	}
+
+	if (this->win == NULL) {
 #ifdef DEBUG
 		std::cout << "Cannot create window: " << this->name << std::endl;
 #endif
-		glfwTerminate();
+		SDL_Quit();
 		return;
 	}
 
-	glfwMakeContextCurrent(this->win);
-	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+	SDL_GLContext context = SDL_GL_CreateContext(this->win);
+	if (!gladLoadGLLoader((GLADloadproc)context)) {
 #ifdef DEBUG
 		std::cout << "Cannot load OpenGL [glad.h]" << std::endl;
 #endif
@@ -376,9 +393,6 @@ void ZQapp::init() {
 
 	glViewport(0, 0, this->dims.x, this->dims.y);
 	this->camera = ZQcamera{ dvec3_t(0.0), vec3_t(0.0f, 0.0f, 0.0f), vec2_t(90.0f, 90.0f * ((float)this->dims.x) / this->dims.y), this->dims };
-
-	glfwSetKeyCallback(this->win, key_callback);
-	glfwSwapInterval(0);
 	glDisable(GL_CULL_FACE);
 
 	this->load_shaders();
@@ -393,28 +407,32 @@ void ZQapp::init() {
 
 void ZQapp::main_loop() {
 	this->loop = true;
-	while (this->loop && !glfwWindowShouldClose(this->win)) {
-		glfwMakeContextCurrent(this->win);
+	while (this->loop) {
 
 		double cursorX, cursorY;
 
 		this->empty_CtrlQueues();
 
 		if (this->control_type == KBdMouse) {
-			glfwGetCursorPos(this->win, &cursorX, &cursorY);
-			glfwSetCursorPos(this->win, (double)(this->dims.x / 2), (double)(this->dims.y / 2));
-			cursor_input(&this->camera, this->dims, cursorX, cursorY);
+			//glfwGetCursorPos(this->win, &cursorX, &cursorY);
+			//glfwSetCursorPos(this->win, (double)(this->dims.x / 2), (double)(this->dims.y / 2));
+			//cursor_input(&this->camera, this->dims, cursorX, cursorY);
 		}
 		else if (this->control_type == Controller) {
-			GLFWgamepadstate state0;
+			SDL_Event event;
 
-			if (glfwGetGamepadState(GLFW_JOYSTICK_1, &state0)) {
-				controller_input(&this->camera, this->dims, state0);
+			while (SDL_PollEvent(&event)) {
+				this->process_CtrlEvent(event);
 			}
+			float lx_axis = (float)SDL_JoystickGetAxis(this->joystick_left, 0) / 32768;
+			float ly_axis = (float)SDL_JoystickGetAxis(this->joystick_left, 1) / 32768;
+
+			controller_view(&this->camera, lx_axis, ly_axis);
 		}
 
 		glClearColor(0.1f, 0.2f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		//glDepthFunc(GL_LESS);
 #ifdef CUDA_RT
 
 		bool* vis = 0;
@@ -429,10 +447,13 @@ void ZQapp::main_loop() {
 		}
 		//draw(&Playerside::models[2], &Playerside::shader_programs[0]);
 #endif
-		this->last_time = glfwGetTime() - this->last_time;
+		ulong_t start = SDL_GetPerformanceCounter();
+		ulong_t freq = SDL_GetPerformanceFrequency(); // Ticks per second
 
-		glfwSwapBuffers(this->win);
-		glfwPollEvents();
+		this->last_time = ((double)start / (double)freq) - this->last_time;
+
+		SDL_GL_SwapWindow(this->win);
+		//glfwPollEvents();
 	}
 }
 
@@ -508,7 +529,7 @@ void draw(ZQcamera* cam, ZQasset_static_instance* mod, ZQshader_program* prog) {
 
 	//glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mod->tIdxs);
 	//std::vector<tri_t> tris = modl->get_tri_idxs();
-	glDrawElements(GL_TRIANGLES, d_m->t_count, GL_UNSIGNED_INT, 0);
+	glDrawElements(GL_TRIANGLES, modl->get_tri_idxs().size(), GL_UNSIGNED_INT, 0);
 
 	glBindVertexArray(0);
 }

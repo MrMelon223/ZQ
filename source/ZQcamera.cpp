@@ -29,9 +29,9 @@ void cursor_input(ZQcamera* cam, dim_t dims, double x, double y) {
 float CTRL_DEADZONE_MOVE = 0.075f;
 float CTRL_MOVE_MULTIPLIER = 0.075f;
 
-void controller_input(ZQcamera* camera, dim_t dims, GLFWgamepadstate& state) {
+void controller_input(ZQcamera* camera, dim_t dims) {
 	// Access axis values
-	float leftX = state.axes[GLFW_GAMEPAD_AXIS_LEFT_X];
+/*	float leftX = state.axes[GLFW_GAMEPAD_AXIS_LEFT_X];
 	float leftY = state.axes[GLFW_GAMEPAD_AXIS_LEFT_Y];
 	float rightX = state.axes[GLFW_GAMEPAD_AXIS_RIGHT_X];
 	float rightY = state.axes[GLFW_GAMEPAD_AXIS_RIGHT_Y];
@@ -68,5 +68,30 @@ void controller_input(ZQcamera* camera, dim_t dims, GLFWgamepadstate& state) {
 	}
 	if (leftX > CTRL_DEADZONE_MOVE || leftX < -CTRL_DEADZONE_MOVE) {
 		camera->position += glm::cross(glm::radians(camera->rotation), glm::radians(camera->rotation)) * leftX * CTRL_MOVE_MULTIPLIER;
+	}*/
+}
+
+void controller_view(ZQcamera* camera, float x, float y) {
+	if (y > CTRL_DEADZONE_MOVE || y < -CTRL_DEADZONE_MOVE) {
+		camera->rotation.x += y * CTRL_MOVE_MULTIPLIER;
+	}
+	if (x > CTRL_DEADZONE_MOVE || x < -CTRL_DEADZONE_MOVE) {
+		camera->rotation.y -= x * CTRL_MOVE_MULTIPLIER;
+	}
+
+	if (camera->rotation.y < 0.0f) {
+		camera->rotation.y = -fmodf(camera->rotation.y, 360.0f);
+	}
+	else {
+		camera->rotation.y = fmodf(camera->rotation.y, 360.0f);
+	}
+
+	if (camera->rotation.x < -70.0f) {
+		camera->rotation.x = fmodf(camera->rotation.x, 360.0f);
+		camera->rotation.x = -70.0f;
+	}
+	else if (camera->rotation.x > 70.0f) {
+		camera->rotation.x = fmodf(camera->rotation.x, 360.0f);
+		camera->rotation.x = 70.0f;
 	}
 }
