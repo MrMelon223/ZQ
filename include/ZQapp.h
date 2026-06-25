@@ -21,6 +21,7 @@ namespace PlayerCtrl {
 	extern std::queue<KBdUse> keyboard_queue;
 	extern int DEADZONE;
 	extern int VIEW_MULTIPLAYER;
+	extern int VIEW_MULTIPLIER_KBD;
 }
 
 //static void key_callback(GLFWwindow*, int, int, int, int);
@@ -42,7 +43,8 @@ protected:
 
 	ZQcamera camera;
 
-	void process_KBdUse(KBdUse);
+	void process_KBdDown(SDL_Scancode&);
+	void process_KBdHold(SDL_Scancode&);
 
 	void process_CtrlEvent(SDL_Event);
 

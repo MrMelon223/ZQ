@@ -186,7 +186,7 @@ void ZQapp::load_textures() {
 	sqlite3_close(db);
 }
 
-void ZQapp::process_KBdUse(KBdUse u) {
+//void ZQapp::process_KBdUse(KBdUse u) {
 	/*if (u.key == GLFW_KEY_ESCAPE && u.action == GLFW_PRESS) {
 		this->loop = false;
 	}
@@ -202,6 +202,34 @@ void ZQapp::process_KBdUse(KBdUse u) {
 	if (u.key == GLFW_KEY_A && u.action == GLFW_PRESS) {
 		this->camera.position -= dvec3_t(glm::normalize(-glm::cross(glm::radians(this->camera.rotation) / 2.0f * 3.1415f, glm::radians(this->camera.rotation) / 2.0f * 3.1415f))) * (double)this->last_time;
 	}*/
+//}
+
+void ZQapp::process_KBdDown(SDL_Scancode& k) {
+	switch (k) {
+	case SDL_SCANCODE_ESCAPE:
+		this->loop = false;
+		break;
+	case SDL_SCANCODE_W:
+		camera_forward(&this->camera, 1.0);
+		break;
+	case SDL_SCANCODE_S:
+		camera_backward(&this->camera, 1.0);
+		break;
+	}
+}
+
+void ZQapp::process_KBdHold(SDL_Scancode& k) {
+	switch (k) {
+	case SDL_SCANCODE_ESCAPE:
+		this->loop = false;
+		break;
+	case SDL_SCANCODE_W:
+		camera_forward(&this->camera, 1.0);
+		break;
+	case SDL_SCANCODE_S:
+		camera_backward(&this->camera, 1.0);
+		break;
+	}
 }
 
 void ZQapp::process_CtrlEvent(SDL_Event e) {
@@ -215,7 +243,7 @@ void ZQapp::empty_CtrlQueues() {
 		KBdUse u = PlayerCtrl::keyboard_queue.front();
 		PlayerCtrl::keyboard_queue.pop();
 
-		this->process_KBdUse(u);
+		//this->process_KBdUse(u);
 	}
 }
 
@@ -383,16 +411,19 @@ void ZQapp::init() {
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
 	int joystick_count = SDL_NumJoysticks();
-	/*if (joystick_count == 0) {
+	if (joystick_count == 0) {
 #ifdef DEBUG
 		std::cout << "No joysticks connected!" << std::endl;
 #endif
 		this->control_type = KBdMouse;
+		SDL_SetRelativeMouseMode(SDL_TRUE);
 	}
 	else {
-	}*/
+		this->control_type = Controller;
+		this->joystick_left = SDL_GameControllerOpen(0);
+	}
 
-	if (SDL_IsGameController(0)) {
+	/*if (SDL_IsGameController(0)) {
 		joystick_left = SDL_GameControllerOpen(0); // <-- USE THIS INSTEAD
 		this->control_type = Controller;
 	}
@@ -401,7 +432,7 @@ void ZQapp::init() {
 		std::cout << "Connected device is not a standard Game Controller layout!" << std::endl;
 #endif
 		this->control_type = KBdMouse;
-	}
+	}*/
 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
@@ -444,7 +475,7 @@ void ZQapp::init() {
 	glDisable(GL_CULL_FACE);
 	glEnable(GL_DEPTH_TEST);
 	glViewport(0, 0, this->dims.x, this->dims.y);
-	this->camera = ZQcamera{ dvec3_t(0.0), vec3_t(0.0f, 0.0f, 0.0f), vec2_t(90.0f, 90.0f * ((float)this->dims.x) / this->dims.y), this->dims };
+	this->camera = ZQcamera{ dvec3_t(0.0), vec3_t(0.0f, 0.0f, 0.0f), vec3_t(0.0f, 0.0f, 0.0f), vec2_t(90.0f, 90.0f * ((float)this->dims.x) / this->dims.y), this->dims };
 	//glDisable(GL_CULL_FACE);
 
 	this->load_shaders();
@@ -459,6 +490,7 @@ void ZQapp::init() {
 
 int PlayerCtrl::DEADZONE = 8000;
 int PlayerCtrl::VIEW_MULTIPLAYER = 20;
+int PlayerCtrl::VIEW_MULTIPLIER_KBD = 0.1f;
 
 void ZQapp::main_loop() {
 
@@ -477,10 +509,44 @@ void ZQapp::main_loop() {
 
 		//this->empty_CtrlQueues();
 
+		SDL_Event ev;
+		while (SDL_PollEvent(&ev)) {
+			if (ev.type == SDL_QUIT) {
+				this->loop = false;
+				break;
+			}
+
+			if (ev.type == SDL_KEYDOWN) {
+				if (ev.key.repeat == 0) {
+					this->process_KBdDown(ev.key.keysym.scancode);
+				}
+				else if (ev.key.repeat >  0) {
+					this->process_KBdHold(ev.key.keysym.scancode);
+				}
+			}
+
+			else if (ev.type == SDL_KEYUP) {
+				if (ev.key.keysym.scancode == SDL_SCANCODE_W) {
+					//this->loop = false;
+					break;
+				}
+			}
+		}
+
 		if (this->control_type == KBdMouse) {
 			//glfwGetCursorPos(this->win, &cursorX, &cursorY);
 			//glfwSetCursorPos(this->win, (double)(this->dims.x / 2), (double)(this->dims.y / 2));
 			//cursor_input(&this->camera, this->dims, cursorX, cursorY);
+			float pitch = 0.0f,
+				yaw = 0.0f;
+
+			int_t mouse_x = 0.0f, mouse_y = 0.0f;
+			uint_t mouse_button = SDL_GetMouseState(&mouse_x, &mouse_y);
+
+			int_t x_screen = mouse_x - (this->dims.x / 2),
+				y_screen = mouse_y - (this->dims.y / 2);
+
+			keyboard_view(&this->camera, x_screen, y_screen, PlayerCtrl::VIEW_MULTIPLIER_KBD);
 		}
 		else if (this->control_type == Controller) {
 			SDL_Event e;
@@ -602,10 +668,14 @@ void ZQapp::main_loop() {
 
 		SDL_GL_SwapWindow(this->win);
 
-		glDeleteTextures(1, &fboColorTex);
-		glDeleteFramebuffers(1, &fbo);
 		//glfwPollEvents();
 	}
+
+	glDeleteTextures(1, &fboColorTex);
+	glDeleteFramebuffers(1, &fbo);
+
+	SDL_DestroyWindow(this->win);
+	SDL_Quit();
 }
 
 void draw(ZQcamera* cam, ZQasset_static_instance* mod, ZQshader_program* prog) {

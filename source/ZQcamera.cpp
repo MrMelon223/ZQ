@@ -96,6 +96,34 @@ void controller_view(ZQcamera* camera, float x, float y) {
 #endif
 }
 
+void keyboard_view(ZQcamera* camera, int_t x, int_t y, float sensitivity) {
+	float pitch = 0.0f,
+		yaw = 0.0f;
+
+	yaw = (float)x / (camera->dims.x / 2) * camera->fov.x;
+	pitch = (float)y / (camera->dims.y / 2) * camera->fov.y;
+
+	if (pitch < -89.0f) {
+		pitch = -89.0f;
+	}
+	if (pitch > 89.0f) {
+		pitch = 89.0f;
+	}
+
+	float yaw_r = glm::radians(yaw);
+	float pitch_r = glm::radians(pitch);
+
+	camera->forward = glm::normalize(camera->forward);
+
+	camera->rotation.x += yaw_r * sensitivity;
+	camera->rotation.y -= pitch_r * sensitivity;
+
+	camera->forward.x = cosf(camera->rotation.x) * cosf(camera->rotation.y);
+	camera->forward.y = sinf(camera->rotation.y);
+	camera->forward.z = sinf(camera->rotation.x) * cosf(camera->rotation.y);
+
+}
+
 void controller_move(ZQcamera* camera, float x, float y) {
 	const float MOVE_SPEED = 50.0f;
 
@@ -123,4 +151,12 @@ void controller_move(ZQcamera* camera, float x, float y) {
 #ifdef DEBUG
 	std::cout << "Adjusting controller position" << std::endl;
 #endif
+}
+
+void camera_forward(ZQcamera* camera, double speed) {
+	camera->position += dvec3_t(camera->forward) * speed;
+}
+
+void camera_backward(ZQcamera* camera, double speed) {
+	camera->position -= dvec3_t(camera->forward) * speed;
 }

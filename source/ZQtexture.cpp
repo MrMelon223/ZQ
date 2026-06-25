@@ -10,7 +10,7 @@ void ZQtexture::load_from(std::string path) {
 	unsigned char* data = stbi_load(path.c_str(), &width, &height, &channels, 0);
 	if (data) {
 		this->dims = dim_t(width, height);
-		std::vector<color_t> map = std::vector<color_t>();
+		/*std::vector<color_t> map = std::vector<color_t>();
 		if (channels == 4) {
 			for (int y = 0; y < height; y++) {
 				for (int x = 0; x < width; x++) {
@@ -38,7 +38,7 @@ void ZQtexture::load_from(std::string path) {
 					map.push_back(c);
 				}
 			}
-		}
+		}*/
 
 		glGenTextures(1, &this->texture);
 		glBindTexture(GL_TEXTURE_2D, this->texture);
@@ -49,7 +49,7 @@ void ZQtexture::load_from(std::string path) {
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, map.data());
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 		glGenerateMipmap(GL_TEXTURE_2D);
 
 

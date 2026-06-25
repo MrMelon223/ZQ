@@ -30,6 +30,7 @@ typedef struct {
 typedef struct {
 	dvec3_t position;
 	vec3_t rotation;
+	vec3_t forward;
 	vec2_t fov;
 	dim_t dims;
 
@@ -43,7 +44,11 @@ void cursor_input(ZQcamera*, dim_t, double, double);
 void controller_input(ZQcamera*, dim_t);
 
 void controller_view(ZQcamera*, float, float);
+void keyboard_view(ZQcamera*, int_t, int_t, float);
 
 void controller_move(ZQcamera*, float, float);
+
+void camera_forward(ZQcamera*, double);
+void camera_backward(ZQcamera*, double);
 
 #endif

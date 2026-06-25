@@ -34,4 +34,6 @@ void cuCheck(cudaError_t&);
 #include <sqlite3.h>
 #include "tiny_gltf.h"
 
+extern const float PI;
+
 #endif

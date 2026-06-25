@@ -2,6 +2,8 @@
 #define GL_GLEXT_PROTOTYPES
 #include "../include/ZQhelper.h"
 
+const float PI = 3.1415f;
+
 #ifdef CUDA_RT
 
 void cuCheck(cudaError_t& e) {
