@@ -19,6 +19,8 @@ typedef struct {
 
 namespace PlayerCtrl {
 	extern std::queue<KBdUse> keyboard_queue;
+	extern int DEADZONE;
+	extern int VIEW_MULTIPLAYER;
 }
 
 //static void key_callback(GLFWwindow*, int, int, int, int);
@@ -56,10 +58,11 @@ protected:
 	std::vector<ZQasset_static_instance> compute_visibility(ZQcamera*);
 
 	float last_time;
+	ulong_t prev_counter;
 
 	ZQcontrol control_type;
-	SDL_Joystick* joystick_left;
-	SDL_Joystick* joystick_right;
+	SDL_GameController* joystick_left;
+	//SDL_Joystick* joystick_right;
 public:
 	ZQapp(ZQcompute*, std::string, dim_t, bool, short_t);
 

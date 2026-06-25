@@ -44,4 +44,6 @@ void controller_input(ZQcamera*, dim_t);
 
 void controller_view(ZQcamera*, float, float);
 
+void controller_move(ZQcamera*, float, float);
+
 #endif

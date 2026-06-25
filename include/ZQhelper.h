@@ -2,6 +2,7 @@
 #define ZQHELPER_H
 
 #define DEBUG 1
+//#define DEBUG_MODEL_TELE 1
 //#define CUDA_RT 1
 
 #ifdef DEBUG
@@ -29,8 +30,8 @@ void cuCheck(cudaError_t&);
 #include <vector>
 
 #include "ZQvecs.h"
-#include <SDL2/SDL.h>
+#include "SDL2/SDL.h"
 #include <sqlite3.h>
-#include <tiny_gltf.h>
+#include "tiny_gltf.h"
 
 #endif

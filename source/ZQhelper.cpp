@@ -1,4 +1,5 @@
 	// ZQhelper.cpp
+#define GL_GLEXT_PROTOTYPES
 #include "../include/ZQhelper.h"
 
 #ifdef CUDA_RT

@@ -1,6 +1,6 @@
 	// ZQtexture.cpp
 //#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include "../include/tiny_gltf/stb_image.h"
 #include "../include/ZQtexture.h"
 
 void ZQtexture::load_from(std::string path) {

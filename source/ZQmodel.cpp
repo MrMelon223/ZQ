@@ -1,4 +1,5 @@
 	// ZQmodel.cpp
+//#define STBI_NO_SIMD
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -111,8 +112,13 @@ d_ZQmodel_c ZQmodel::generate_model() {
 const ulong_t MAX_BONE_CHILDREN = 8;
 
 void ZQmodel::load_data(const tinygltf::Model m) {
-	this->aabb[0] = vec3_t(0.0f);
-	this->aabb[1] = vec3_t(0.0f);
+	this->aabb[0] = vec3_t(std::numeric_limits<float>::max());
+	this->aabb[1] = vec3_t(-std::numeric_limits<float>::max());
+
+	this->vCount = 0;
+	this->tCount = 0;
+
+	size_t vertex_offset = 0;
 	for (const auto& mesh : m.meshes) {
 		for (const auto& prim : mesh.primitives) {
 			const auto& posAccIdx = prim.attributes.find("POSITION");
@@ -127,9 +133,9 @@ void ZQmodel::load_data(const tinygltf::Model m) {
 			const size_t posByteOffset = posBuffView.byteOffset + posAcc.byteOffset;
 			const unsigned char* posBuffPtr = posBuff.data.data() + posBuffView.byteOffset + posAcc.byteOffset;
 
-			if (posAcc.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT || posAcc.type == TINYGLTF_TYPE_VEC3) {
+			if (posAcc.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT && posAcc.type == TINYGLTF_TYPE_VEC3) {
 				const float* positions = reinterpret_cast<const float*>(posBuffPtr);
-				for (size_t i = 0; i < posAcc.count / 3; i++) {
+				for (size_t i = 0; i < posAcc.count; i++) {
 					float x = positions[i * 3 + 0];
 					float y = positions[i * 3 + 1];
 					float z = positions[i * 3 + 2];
@@ -140,7 +146,7 @@ void ZQmodel::load_data(const tinygltf::Model m) {
 						this->aabb[1] = p;
 					}
 					else {
-						if (x < this->aabb[0].x) {
+						/*if (x < this->aabb[0].x) {
 							this->aabb[0].x = x;
 						}
 						else if (x > this->aabb[1].x) {
@@ -156,24 +162,30 @@ void ZQmodel::load_data(const tinygltf::Model m) {
 							this->aabb[0].z = z;
 						}
 						else if (z > this->aabb[1].z) {
-							this->aabb[1].z = z;
-						}
+							this->aabb[1].z = z;*/
+						this->aabb[0].x = std::min(this->aabb[0].x, x);
+						this->aabb[0].y = std::min(this->aabb[0].y, y);
+						this->aabb[0].z = std::min(this->aabb[0].z, z);
+
+						this->aabb[1].x = std::max(this->aabb[1].x, x);
+						this->aabb[1].y = std::max(this->aabb[1].y, y);
+						this->aabb[1].z = std::max(this->aabb[1].z, z);
 					}
 					this->vPositions.push_back(p);
-#ifdef DEBUG
+#ifdef DEBUG_MODEL_TELE
 					std::cout << "pos " << i << " = " << x << ", " << y << ", " << z << std::endl;
 #endif
 				}
 			}
-			this->vCount = this->vPositions.size();	
+			this->vCount += this->vPositions.size();	
 
-#ifdef DEBUG
+#ifdef DEBUG_MODEL_TELE
 			std::cout << "AABB = { ( " << this->aabb[0].x << ", " << this->aabb[0].y << ", " << this->aabb[0].z << " ), ( " << this->aabb[1].x << ", " << this->aabb[1].y << ", " << this->aabb[1].z << ") }" << std::endl;
 #endif
 
 			const auto& normAccIdx = prim.attributes.find("NORMAL");
 			if (normAccIdx == prim.attributes.end()) {
-#ifdef DEBUG
+#ifdef DEBUG_MODEL_TELE
 				std::cout << "Normals empty." << std::endl;
 #endif
 				continue;
@@ -186,7 +198,7 @@ void ZQmodel::load_data(const tinygltf::Model m) {
 			const size_t normByteOffset = normBuffView.byteOffset + normAcc.byteOffset;
 			const unsigned char* normBuffPtr = normBuff.data.data() + normBuffView.byteOffset + normAcc.byteOffset;
 
-			if (normAcc.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT || normAcc.type == TINYGLTF_TYPE_VEC3) {
+			if (normAcc.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT && normAcc.type == TINYGLTF_TYPE_VEC3) {
 				const float* normals = reinterpret_cast<const float*>(normBuffPtr);
 				for (size_t i = 0; i < normAcc.count / 3; i++) {
 					float x = normals[i * 3 + 0];
@@ -195,7 +207,7 @@ void ZQmodel::load_data(const tinygltf::Model m) {
 
 					vec3_t p{ x, y, z };
 					this->vNormals.push_back(p);
-#ifdef DEBUG
+#ifdef DEBUG_MODEL_TELE
 					std::cout << "norm " << i << " = " << x << ", " << y << ", " << z << std::endl;
 #endif
 				}
@@ -203,7 +215,7 @@ void ZQmodel::load_data(const tinygltf::Model m) {
 
 			const auto& uvAccIdx = prim.attributes.find("TEXCOORD_0");
 			if (uvAccIdx == prim.attributes.end()) {
-#ifdef DEBUG
+#ifdef DEBUG_MODEL_TELE
 				std::cout << "UVs empty." << std::endl;
 #endif
 				continue;
@@ -211,12 +223,12 @@ void ZQmodel::load_data(const tinygltf::Model m) {
 
 			const tinygltf::Accessor& uvAcc = m.accessors[uvAccIdx->second];
 			const tinygltf::BufferView& uvBuffView = m.bufferViews[uvAcc.bufferView];
-			const tinygltf::Buffer uvBuff = m.buffers[uvBuffView.buffer];
+			const tinygltf::Buffer& uvBuff = m.buffers[uvBuffView.buffer];
 
 			const size_t uvByteOffset = uvBuffView.byteOffset + uvAcc.byteOffset;
 			const unsigned char* uvBuffPtr = uvBuff.data.data() + uvBuffView.byteOffset + uvAcc.byteOffset;
 
-			if (uvAcc.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT || uvAcc.type == TINYGLTF_TYPE_VEC2) {
+			if (uvAcc.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT && uvAcc.type == TINYGLTF_TYPE_VEC2) {
 				const float* uvs = reinterpret_cast<const float*>(uvBuffPtr);
 				for (size_t i = 0; i < uvAcc.count / 2; i++) {
 					float x = uvs[i * 2 + 0];
@@ -224,7 +236,7 @@ void ZQmodel::load_data(const tinygltf::Model m) {
 
 					uv_t p{ x, y };
 					this->vUVs.push_back(p);
-#ifdef DEBUG
+#ifdef DEBUG_MODEL_TELE
 					std::cout << "uv " << i << " = {" << x << ", " << y << " }" << std::endl;
 #endif
 				}
@@ -239,6 +251,10 @@ void ZQmodel::load_data(const tinygltf::Model m) {
 				if (triAcc.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
 					const uint16_t* tris = reinterpret_cast<const uint16_t*>(triBuffPtr);
 
+#ifdef DEBUG
+					std::cout << "16-bit uint used!" << std::endl;
+#endif
+
 					for (size_t i = 0; i < triAcc.count; i++) {
 						uint32_t x = static_cast<uint32_t>(tris[i]);// / (3);
 						//uint32_t y = static_cast<uint32_t>(tris[i * 3 + 1]);// / (3);
@@ -248,7 +264,7 @@ void ZQmodel::load_data(const tinygltf::Model m) {
 						this->tIndices.push_back(x);
 						//this->tIndices.push_back(y);
 						//this->tIndices.push_back(z);
-#ifdef DEBUG
+#ifdef DEBUG_MODEL_TELE
 						//std::cout << "tri " << i << " = {" << x << ", " << y << ", " << z << " }" << std::endl;
 #endif
 
@@ -280,6 +296,10 @@ void ZQmodel::load_data(const tinygltf::Model m) {
 				else if (triAcc.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) {
 					const uint32_t* tris = reinterpret_cast<const uint32_t*>(triBuffPtr);
 
+#ifdef DEBUG
+					std::cout << "32-bit uint used!" << std::endl;
+#endif
+
 					for (size_t i = 0; i < triAcc.count; i++) {
 						uint32_t x = tris[i];// / 3;
 						//uint32_t y = tris[i * 3 + 1];// / 3;
@@ -289,9 +309,6 @@ void ZQmodel::load_data(const tinygltf::Model m) {
 						this->tIndices.push_back(x);
 						//this->tIndices.push_back(y);
 						//this->tIndices.push_back(z);
-#ifdef DEBUG
-						//std::cout << "tri " << i << " = {" << x << ", " << y << ", " << z << " }" << std::endl;
-#endif
 						/*vec3_t xP, yP, zP;
 						if (x < this->vCount) {
 							xP = this->vPositions[x];
@@ -317,9 +334,9 @@ void ZQmodel::load_data(const tinygltf::Model m) {
 						this->tNormals.push_back(c);*/
 					}
 				}
-				this->tCount = this->tIndices.size();
-
-				for (ulong_t j = 0; j < this->tCount / 3; j++) {
+				this->tCount += this->tIndices.size() / 3;
+				ulong_t local_tCount = this->tIndices.size() / 3;
+				for (ulong_t j = 0; j < local_tCount; j++) {
 
 					uint32_t x = this->tIndices[j * 3];
 					uint32_t y = this->tIndices[j * 3 + 1];
@@ -350,12 +367,13 @@ void ZQmodel::load_data(const tinygltf::Model m) {
 					this->tNormals.push_back(c);
 				}
 			}
+			vertex_offset += posAcc.count;
 		}
 	}
 	this->vtPositions = std::vector<vec2_t>(this->vCount);
 	this->vtNormals = std::vector<vec3_t>(this->vCount);
 
-	this->tNormalsT = std::vector<vec3_t>(this->tCount / 3);
+	this->tNormalsT = std::vector<vec3_t>(this->tCount);
 }
 
 void ZQmodel::debug_print() {
@@ -370,7 +388,7 @@ d_ZQmodel ZQmodel::to_gpu() {
 	glGenVertexArrays(1, &r.vao);
 
 	GLuint* buffs = new GLuint[6];
-	glCreateBuffers(6, buffs);
+	glGenBuffers(6, buffs);
 
 	glBindVertexArray(r.vao);
 

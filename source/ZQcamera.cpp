@@ -73,25 +73,54 @@ void controller_input(ZQcamera* camera, dim_t dims) {
 
 void controller_view(ZQcamera* camera, float x, float y) {
 	if (y > CTRL_DEADZONE_MOVE || y < -CTRL_DEADZONE_MOVE) {
-		camera->rotation.x += y * CTRL_MOVE_MULTIPLIER;
+		camera->rotation.x -= y * CTRL_MOVE_MULTIPLIER;
 	}
 	if (x > CTRL_DEADZONE_MOVE || x < -CTRL_DEADZONE_MOVE) {
-		camera->rotation.y -= x * CTRL_MOVE_MULTIPLIER;
+		camera->rotation.y += x * CTRL_MOVE_MULTIPLIER;
 	}
 
 	if (camera->rotation.y < 0.0f) {
-		camera->rotation.y = -fmodf(camera->rotation.y, 360.0f);
-	}
-	else {
-		camera->rotation.y = fmodf(camera->rotation.y, 360.0f);
+		camera->rotation.y = 360.0f;
 	}
 
+	camera->rotation.x = fmodf(camera->rotation.x, 360.0f);
+	camera->rotation.x = fmodf(camera->rotation.x, 360.0f);
 	if (camera->rotation.x < -70.0f) {
-		camera->rotation.x = fmodf(camera->rotation.x, 360.0f);
 		camera->rotation.x = -70.0f;
 	}
 	else if (camera->rotation.x > 70.0f) {
-		camera->rotation.x = fmodf(camera->rotation.x, 360.0f);
 		camera->rotation.x = 70.0f;
 	}
+#ifdef DEBUG
+	std::cout << "Adjusting controller view!" << std::endl;
+#endif
+}
+
+void controller_move(ZQcamera* camera, float x, float y) {
+	const float MOVE_SPEED = 50.0f;
+
+	// 2. Convert degrees to radians
+	float pitch = glm::radians(camera->rotation.x);
+	float yaw = glm::radians(camera->rotation.y);
+
+	// 3. Calculate where the camera is looking overall
+	glm::vec3 forward;
+	forward.x = cos(pitch) * sin(yaw);
+	forward.y = sin(pitch);
+	forward.z = -cos(pitch) * cos(yaw);
+	forward = glm::normalize(forward);
+
+	// 4. Project onto the horizontal floor plane (X and Z only)
+	glm::vec3 ground_forward = glm::normalize(glm::vec3(forward.x, 0.0f, forward.z));
+
+	// 5. Find the perpendicular "Right" vector using a cross product
+	glm::vec3 ground_right = glm::normalize(glm::cross(ground_forward, glm::vec3(0.0f, 1.0f, 0.0f)));
+
+	// 6. Update the physical position coordinates
+	// ly_axis is negative when pushing forward on standard sticks, so we invert it
+	camera->position += dvec3_t(ground_forward) * (double)(-y * MOVE_SPEED);
+	camera->position += dvec3_t(ground_right) * (double)(x * MOVE_SPEED);
+#ifdef DEBUG
+	std::cout << "Adjusting controller position" << std::endl;
+#endif
 }

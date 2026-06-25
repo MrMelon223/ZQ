@@ -1,14 +1,14 @@
 #ifndef ZQVECS_H
 #define ZQVECS_H
 
-#include "glad/glad.h"
-#include "GL/gl.h"
+#include <glad/glad.h>
 #include "glm/glm.hpp"
 #include "glm/gtc/type_ptr.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/matrix_access.hpp"
 //#include <sycl/sycl.hpp>
 #include <cstdint>
+#include <algorithm>
 
 typedef glm::vec2 vec2_t;
 typedef glm::vec2 uv_t;

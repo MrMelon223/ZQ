@@ -222,61 +222,85 @@ void ZQapp::empty_CtrlQueues() {
 std::vector<glm::vec4> getFrustumPlanes(const glm::mat4& viewProj) {
 	std::vector<glm::vec4> planes(6);
 
-	// Extract rows for Gribb-Hartmann extraction
 	glm::vec4 r1 = glm::row(viewProj, 0);
 	glm::vec4 r2 = glm::row(viewProj, 1);
 	glm::vec4 r3 = glm::row(viewProj, 2);
 	glm::vec4 r4 = glm::row(viewProj, 3);
 
-	planes[0] = r4 + r1; // Left
-	planes[1] = r4 - r1; // Right
-	planes[2] = r4 + r2; // Bottom
-	planes[3] = r4 - r2; // Top
-	planes[4] = r4 + r3; // Near
+	planes[0] = r4 + r1;
+	planes[1] = r4 - r1;
+	planes[2] = r4 + r2;
+	planes[3] = r4 - r2;
+
+	planes[4] = r4 + r3;
+
 	planes[5] = r4 - r3; // Far
 
-	// Normalize planes so we can calculate real distances
 	for (int i = 0; i < 6; i++) {
 		float length = glm::length(glm::vec3(planes[i]));
-		planes[i] /= length;
+		if (length > 0.0f) {
+			planes[i] /= length;
+		}
 	}
 
 	return planes;
 }
 
 bool isBoxInFrustum(const std::vector<glm::vec4>& planes, glm::vec3 min, glm::vec3 max) {
-	for (int i = 0; i < 6; i++) {
-		// Find the corner of the AABB furthest along the plane normal
-		glm::vec3 positive = min;
-		if (planes[i].x >= 0) positive.x = max.x;
-		if (planes[i].y >= 0) positive.y = max.y;
-		if (planes[i].z >= 0) positive.z = max.z;
+	glm::vec3 center = (min + max) * 0.5f;
+	glm::vec3 extents = max - center;
 
-		// If the "most positive" corner is behind the plane, the box is outside
-		if (glm::dot(glm::vec3(planes[i]), positive) + planes[i].w < 0) {
+	for (int i = 0; i < 6; i++) {
+		const glm::vec4& plane = planes[i];
+		glm::vec3 normal = glm::vec3(plane);
+
+		float radius = extents.x * std::abs(normal.x) +
+			extents.y * std::abs(normal.y) +
+			extents.z * std::abs(normal.z);
+
+
+		float distance = glm::dot(normal, center) + plane.w;
+
+		if (distance < -radius) {
 			return false;
 		}
 	}
+
+	// The box overlaps or is entirely inside the frustum volume
 	return true;
 }
 
 std::vector<ZQasset_static_instance> ZQapp::compute_visibility(ZQcamera* cam) {
 	std::vector<ZQasset_static_instance> r = std::vector<ZQasset_static_instance>();
 
-	mat4_t persp = glm::perspective(cam->fov.x, cam->fov.x / cam->fov.y, 0.01f, 1000.0f);
+	float pitch = glm::radians(cam->rotation.x);
+	float yaw = glm::radians(cam->rotation.y);
+	glm::vec3 forward(
+		cos(pitch) * sin(yaw),
+		sin(pitch),
+		-cos(pitch) * cos(yaw)
+	);
+	mat4_t geo = glm::lookAt(vec3_t(cam->position), vec3_t(cam->position) + forward, glm::vec3(0.0f, 1.0f, 0.0f));
+	mat4_t persp = glm::perspective(glm::radians(cam->fov.x), (float)(cam->dims.x) / cam->dims.y, 0.01f, 10000.0f);
 
-	std::vector<vec4_t> view_planes = getFrustumPlanes(persp);
+	mat4_t viewProj = persp * geo;
+
+	std::vector<vec4_t> view_planes = getFrustumPlanes(viewProj);
 
 	for (ulong_t i = 0; i < Level::static_instances.size(); i++) {
 		ZQasset_static_instance* inst = &Level::static_instances[i];
 		ZQasset_static* asset = &Playerside::static_assets[inst->asset_idx];
 		ZQmodel* model = &Playerside::h_models[asset->lod0_idx];
 
-		vec3_t aabb_max = vec3_t(cam->position) - vec3_t(inst->position) + model->get_aabb_high();
-		vec3_t aabb_min = vec3_t(cam->position) - vec3_t(inst->position) + model->get_aabb_low();
+		vec3_t aabb_min = vec3_t(inst->position) + model->get_aabb_low();
+		vec3_t aabb_max = vec3_t(inst->position) + model->get_aabb_high();
 
-		if (isBoxInFrustum(view_planes, aabb_min, aabb_max)) {
-			if (r.empty()) {
+		vec3_t real_min = glm::min(aabb_min, aabb_max);
+		vec3_t real_max = glm::max(aabb_min, aabb_max);
+
+		if (isBoxInFrustum(view_planes, real_min, real_max)) {
+			r.push_back(*inst);
+			/*if (r.empty()) {
 				r.push_back(*inst);
 			}
 			else {
@@ -305,9 +329,16 @@ std::vector<ZQasset_static_instance> ZQapp::compute_visibility(ZQcamera* cam) {
 						}
 					}
 				}
-			}
+			}*/
 		}
 	}
+
+	std::sort(r.begin(), r.end(), [cam](const ZQasset_static_instance& a, const ZQasset_static_instance& b) {
+		vec3_t distA = vec3_t(a.position - cam->position);
+		vec3_t distB = vec3_t(b.position - cam->position);
+
+		return glm::dot(distA, distA) < glm::dot(distB, distB);
+	});
 
 	return r;
 }
@@ -336,9 +367,9 @@ void ZQapp::init() {
 #endif
 	SDL_SetMainReady();
 
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0) {
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER) < 0) {
 #ifdef DEBUG
-		std::cout << "Cannot initialize SDL!" << std::endl;
+		std::cout << "Cannot initialize SDL!: " << SDL_GetError() << std::endl;
 #endif
 		return;
 	}
@@ -351,28 +382,37 @@ void ZQapp::init() {
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
-	if (SDL_NumJoysticks() < 1) {
+	int joystick_count = SDL_NumJoysticks();
+	/*if (joystick_count == 0) {
 #ifdef DEBUG
 		std::cout << "No joysticks connected!" << std::endl;
 #endif
-		return;
-	}
-
-	if (SDL_NumJoysticks() < 2) {
-#ifdef DEBUG
-		std::cout << "Not enough joysticks!" << std::endl;
-#endif
-		return;
-	}
-
-	joystick_left = SDL_JoystickOpen(0);
-	joystick_right = SDL_JoystickOpen(1);
-
-	if (this->fullscreen) {
-		this->win = SDL_CreateWindow(this->name.c_str(), SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 0, 0, SDL_WINDOW_FULLSCREEN_DESKTOP);
+		this->control_type = KBdMouse;
 	}
 	else {
-		this->win = SDL_CreateWindow(this->name.c_str(), SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, this->dims.x, this->dims.y, 0);
+	}*/
+
+	if (SDL_IsGameController(0)) {
+		joystick_left = SDL_GameControllerOpen(0); // <-- USE THIS INSTEAD
+		this->control_type = Controller;
+	}
+	else {
+#ifdef DEBUG
+		std::cout << "Connected device is not a standard Game Controller layout!" << std::endl;
+#endif
+		this->control_type = KBdMouse;
+	}
+
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+
+	//SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+
+	if (this->fullscreen) {
+		this->win = SDL_CreateWindow(this->name.c_str(), SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 0, 0, SDL_WINDOW_FULLSCREEN_DESKTOP | SDL_WINDOW_OPENGL);
+	}
+	else {
+		this->win = SDL_CreateWindow(this->name.c_str(), SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, this->dims.x, this->dims.y, SDL_WINDOW_OPENGL);
 	}
 
 	if (this->win == NULL) {
@@ -383,17 +423,29 @@ void ZQapp::init() {
 		return;
 	}
 
+
 	SDL_GLContext context = SDL_GL_CreateContext(this->win);
-	if (!gladLoadGLLoader((GLADloadproc)context)) {
+	if (!context) {
 #ifdef DEBUG
 		std::cout << "Cannot load OpenGL [glad.h]" << std::endl;
 #endif
 		return;
 	}
 
+	SDL_GL_MakeCurrent(this->win, context);
+
+	if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {
+#ifdef DEBUG
+		std::cout << "gladLoadGLLoader failed!" << std::endl;
+#endif
+		return;
+	}
+
+	glDisable(GL_CULL_FACE);
+	glEnable(GL_DEPTH_TEST);
 	glViewport(0, 0, this->dims.x, this->dims.y);
 	this->camera = ZQcamera{ dvec3_t(0.0), vec3_t(0.0f, 0.0f, 0.0f), vec2_t(90.0f, 90.0f * ((float)this->dims.x) / this->dims.y), this->dims };
-	glDisable(GL_CULL_FACE);
+	//glDisable(GL_CULL_FACE);
 
 	this->load_shaders();
 	this->load_models();
@@ -405,13 +457,25 @@ void ZQapp::init() {
 	this->last_time = 0.0f;
 }
 
+int PlayerCtrl::DEADZONE = 8000;
+int PlayerCtrl::VIEW_MULTIPLAYER = 20;
+
 void ZQapp::main_loop() {
+
+	GLuint fbo = 0,
+		fboColorTex = 0;
+
+	glGenTextures(1, &fboColorTex);
+	glGenFramebuffers(1, &fbo);
+
 	this->loop = true;
 	while (this->loop) {
 
+		SDL_PumpEvents();
+
 		double cursorX, cursorY;
 
-		this->empty_CtrlQueues();
+		//this->empty_CtrlQueues();
 
 		if (this->control_type == KBdMouse) {
 			//glfwGetCursorPos(this->win, &cursorX, &cursorY);
@@ -419,15 +483,67 @@ void ZQapp::main_loop() {
 			//cursor_input(&this->camera, this->dims, cursorX, cursorY);
 		}
 		else if (this->control_type == Controller) {
-			SDL_Event event;
+			SDL_Event e;
 
-			while (SDL_PollEvent(&event)) {
-				this->process_CtrlEvent(event);
+			float lx_axis = 0.0f;
+			float ly_axis = 0.0f;
+			float rx_axis = 0.0f;
+			float ry_axis = 0.0f;
+			const int DEADZONE = 8000;
+
+			int16_t raw_lx = SDL_GameControllerGetAxis(this->joystick_left, SDL_CONTROLLER_AXIS_LEFTX);
+			int16_t raw_ly = SDL_GameControllerGetAxis(this->joystick_left, SDL_CONTROLLER_AXIS_LEFTY);
+			int16_t raw_rx = SDL_GameControllerGetAxis(this->joystick_left, SDL_CONTROLLER_AXIS_RIGHTX);
+			int16_t raw_ry = SDL_GameControllerGetAxis(this->joystick_left, SDL_CONTROLLER_AXIS_RIGHTY);
+
+			lx_axis = (abs(raw_lx) > PlayerCtrl::DEADZONE) ? (float)raw_lx / 32768.0f : 0.0f;
+			ly_axis = (abs(raw_ly) > PlayerCtrl::DEADZONE) ? (float)raw_ly / 32768.0f : 0.0f;
+			rx_axis = (abs(raw_rx) > PlayerCtrl::DEADZONE) ? (float)raw_rx / 32768.0f : 0.0f;
+			ry_axis = (abs(raw_ry) > PlayerCtrl::DEADZONE) ? (float)raw_ry / 32768.0f : 0.0f;
+
+			lx_axis *= this->last_time;
+			ly_axis *= this->last_time;
+			rx_axis *= PlayerCtrl::VIEW_MULTIPLAYER;
+			ry_axis *= PlayerCtrl::VIEW_MULTIPLAYER;
+
+			// 4. Update the Camera State
+			controller_view(&this->camera, rx_axis, ry_axis);
+			controller_move(&this->camera, lx_axis, ly_axis);
+
+			/*while (SDL_PollEvent(&e)) {
+
+				if (e.type == SDL_CONTROLLERAXISMOTION) {
+					// Left Stick - Movement
+					if (e.caxis.axis == SDL_CONTROLLER_AXIS_LEFTX) {
+						if (abs(e.caxis.value) > DEADZONE) lx_axis = (float)e.caxis.value / 32768;
+						else lx_axis = 0.0f;
+					}
+					if (e.caxis.axis == SDL_CONTROLLER_AXIS_LEFTY) {
+						if (abs(e.caxis.value) > DEADZONE) ly_axis = (float)e.caxis.value / 32768;
+						else ly_axis = 0.0f;
+					}
+
+					// Right Stick - Camera / Aiming
+					if (e.caxis.axis == SDL_CONTROLLER_AXIS_RIGHTX) {
+						if (abs(e.caxis.value) > DEADZONE) rx_axis = (float)e.caxis.value / 32768;
+						else rx_axis = 0.0f;
+					}
+					if (e.caxis.axis == SDL_CONTROLLER_AXIS_RIGHTY) {
+						if (abs(e.caxis.value) > DEADZONE) ry_axis = (float)e.caxis.value / 32768;
+						else ry_axis = 0.0f;
+					}
+				}
+				else {
+					this->process_CtrlEvent(e);
+				}
 			}
-			float lx_axis = (float)SDL_JoystickGetAxis(this->joystick_left, 0) / 32768;
-			float ly_axis = (float)SDL_JoystickGetAxis(this->joystick_left, 1) / 32768;
 
-			controller_view(&this->camera, lx_axis, ly_axis);
+			lx_axis *= this->last_time;
+			ly_axis *= this->last_time;
+			rx_axis *= this->last_time;
+			ry_axis *= this->last_time;
+
+			controller_view(&this->camera, rx_axis, ry_axis);*/
 		}
 
 		glClearColor(0.1f, 0.2f, 0.3f, 1.0f);
@@ -447,12 +563,47 @@ void ZQapp::main_loop() {
 		}
 		//draw(&Playerside::models[2], &Playerside::shader_programs[0]);
 #endif
-		ulong_t start = SDL_GetPerformanceCounter();
+		ulong_t current = SDL_GetPerformanceCounter();
 		ulong_t freq = SDL_GetPerformanceFrequency(); // Ticks per second
+		if (freq == 0) {
+			this->last_time = 0.0f;
+		}
+		else {
+			this->last_time = (double)(current - this->prev_counter) / (double)freq;
+			this->prev_counter = current;
+		}
 
-		this->last_time = ((double)start / (double)freq) - this->last_time;
+		glBindTexture(GL_TEXTURE_2D, fboColorTex);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, this->dims.x, this->dims.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+		glBindTexture(GL_TEXTURE_2D, 0);
+
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+		glFramebufferTexture2D(
+			GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fboColorTex, 0);
+
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+#ifdef DEBUG
+			std::cout << "Error: Framebuffer not made!" << std::endl;
+#endif
+		}
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo);
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+		glBlitFramebuffer(0, 0, this->dims.x, this->dims.y, 0, 0, this->dims.x, this->dims.y, GL_COLOR_BUFFER_BIT,
+			GL_NEAREST);
 
 		SDL_GL_SwapWindow(this->win);
+
+		glDeleteTextures(1, &fboColorTex);
+		glDeleteFramebuffers(1, &fbo);
 		//glfwPollEvents();
 	}
 }
@@ -467,15 +618,15 @@ void draw(ZQcamera* cam, ZQasset_static_instance* mod, ZQshader_program* prog) {
 
 	float dist = glm::length(mod->position - cam->position);
 
-	if (dist < 10.0f) {
+	if (dist < 100.0f) {
 		d_m = &Playerside::models[asset->lod0_idx];
 		modl = &Playerside::h_models[asset->lod0_idx];
 	}
-	else if (dist < 20.0f) {
+	else if (dist < 200.0f) {
 		d_m = &Playerside::models[asset->lod1_idx];
 		modl = &Playerside::h_models[asset->lod1_idx];
 	}
-	else if (dist < 30.0f) {
+	else if (dist < 300.0f) {
 		d_m = &Playerside::models[asset->lod2_idx];
 		modl = &Playerside::h_models[asset->lod2_idx];
 	}
@@ -492,20 +643,37 @@ void draw(ZQcamera* cam, ZQasset_static_instance* mod, ZQshader_program* prog) {
 	int_t color_map = glGetUniformLocation(progam, "color_map");
 
 	mat4_t model = mat4_t(1.0f);
-	model = glm::translate(model, vec3_t(mod->position));
+
+	float pitch = glm::radians(cam->rotation.x);
+	float yaw = glm::radians(cam->rotation.y);
+
+	vec3_t forward = vec3_t(
+						cosf(pitch) * sinf(yaw),
+						sinf(pitch),
+						-cosf(pitch) * cosf(yaw));
+	forward = glm::normalize(forward);
+
+	vec3_t cam_pos = vec3_t(cam->position);
+	vec3_t target_pos = cam_pos + forward;
+
+	vec3_t up = vec3_t(0.0f, 1.0f, 0.0f);
+
+	mat4_t geo = glm::lookAt(cam_pos, target_pos, up);
+	
+	/*model = glm::translate(model, vec3_t(mod->position));
 	model = glm::rotate(model, glm::radians(mod->rotation.x), vec3_t(1.0f, 0.0f, 0.0f));
 	model = glm::rotate(model, glm::radians(mod->rotation.y), vec3_t(0.0f, 1.0f, 0.0f));
-	model = glm::rotate(model, glm::radians(mod->rotation.z), vec3_t(0.0f, 0.0f, 1.0f));
+	model = glm::rotate(model, glm::radians(mod->rotation.z), vec3_t(0.0f, 0.0f, 1.0f));*/
 
-	mat4_t geo = mat4_t(1.0f);
+	/*mat4_t geo = mat4_t(1.0f);
 	geo = glm::translate(geo, -vec3_t(cam->position));
 	geo = glm::rotate(geo, glm::radians(cam->rotation.x), vec3_t(1.0f, 0.0f, 0.0f));
 	geo = glm::rotate(geo, glm::radians(cam->rotation.y), vec3_t(0.0f, 1.0f, 0.0f));
-	//geo = glm::rotate(geo, glm::radians(0.0f), vec3_t(0.0f, 0.0f, 1.0f));
+	//geo = glm::rotate(geo, glm::radians(0.0f), vec3_t(0.0f, 0.0f, 1.0f));*/
 
-	geo = glm::inverse(geo);
+	//geo = glm::inverse(geo);
 
-	mat4_t persp = glm::perspective(glm::radians(cam->fov.x), (float)cam->dims.x / cam->dims.y, 0.1f, 1000.0f);
+	mat4_t persp = glm::perspective(glm::radians(cam->fov.x), (float)cam->dims.x / cam->dims.y, 0.01f, 10000.0f);
 
 	glUseProgram(progam);
 
