@@ -7,6 +7,8 @@ std::vector<ZQmodel> Playerside::h_models = std::vector<ZQmodel>();
 std::vector<d_ZQmodel> Playerside::models = std::vector<d_ZQmodel>();
 std::vector<d_ZQmodel_c> Playerside::h_models_c = std::vector<d_ZQmodel_c>();
 
+//std::vector<ZQskeleton> Playerside::skeletons = std::vector<ZQskeleton>();
+
 ulong_t Playerside::find_model_idx(std::string name) {
 	for (ulong_t i = 0; i < Playerside::h_models.size(); i++) {
 		if (Playerside::h_models[i].get_name() == name) {

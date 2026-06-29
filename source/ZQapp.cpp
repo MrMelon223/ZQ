@@ -15,6 +15,18 @@ int Playerside::model_callback(void* data, int argc, char** argv, char** azColNa
 	return 0;
 }
 
+/*int Playerside::skeleton_callback(void* data, int argc, char** argv, char** azColName) {
+	std::string path = argv[0];
+	std::string name = argv[1];
+#ifdef DEBUG
+	std::cout << "Skeleton: " << path << ", " << name << std::endl;
+#endif
+
+	Playerside::skeletons.push_back(ZQskeleton(path, name));
+
+	return 0;
+}*/
+
 int Playerside::shader_callback(void* data, int argc, char** argv, char** azColName) {
 	std::string vs_path = argv[0];
 	std::string ps_path = argv[1];
@@ -688,15 +700,15 @@ void draw(ZQcamera* cam, ZQasset_static_instance* mod, ZQshader_program* prog) {
 
 	float dist = glm::length(mod->position - cam->position);
 
-	if (dist < 100.0f) {
+	if (dist < 10.0f) {
 		d_m = &Playerside::models[asset->lod0_idx];
 		modl = &Playerside::h_models[asset->lod0_idx];
 	}
-	else if (dist < 200.0f) {
+	else if (dist < 20.0f) {
 		d_m = &Playerside::models[asset->lod1_idx];
 		modl = &Playerside::h_models[asset->lod1_idx];
 	}
-	else if (dist < 300.0f) {
+	else if (dist < 30.0f) {
 		d_m = &Playerside::models[asset->lod2_idx];
 		modl = &Playerside::h_models[asset->lod2_idx];
 	}

@@ -15,6 +15,9 @@ namespace Playerside {
 	extern d_ZQmodel_c* d_models_c;
 	static int model_callback(void*, int, char**, char**);
 
+	//extern std::vector<ZQskeleton> skeletons;
+	//static int skeleton_callback(void*, int, char**, char**);
+
 	ulong_t find_model_idx(std::string);
 
 	extern std::vector<ZQasset_static> static_assets;

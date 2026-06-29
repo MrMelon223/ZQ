@@ -36,6 +36,7 @@
     <ClInclude Include="include\ZQcompute.h" />
     <ClInclude Include="include\ZQhelper.h" />
     <ClInclude Include="include\ZQlevel.h" />
+    <ClInclude Include="include\ZQlighting.h" />
     <ClInclude Include="include\ZQmodel.h" />
     <ClInclude Include="include\ZQshader.h" />
     <ClInclude Include="include\ZQtexture.h" />

@@ -10,6 +10,8 @@
 #include <cstdint>
 #include <algorithm>
 
+typedef glm::uvec4 uvec4_t;
+
 typedef glm::vec2 vec2_t;
 typedef glm::vec2 uv_t;
 

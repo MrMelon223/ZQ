@@ -111,6 +111,208 @@ d_ZQmodel_c ZQmodel::generate_model() {
 
 const ulong_t MAX_BONE_CHILDREN = 8;
 
+/*void ZQskeleton::traverse_skeleton(const tinygltf::Model& m, int idx, int d = 0) {
+	const tinygltf::Node& n = m.nodes[idx];
+
+	for (size_t i = 0; i < d; i++) {
+#ifdef DEBUG
+		if (!n.name.empty()) {
+			std::cout << "Skeleton Model " << this->name << " Node [" << idx << "]: " << n.name << std::endl;
+		}
+		else {
+			std::cout << "Skeleton Model " << this->name << " Node [" << idx << "]: Not found!" << std::endl;
+		}
+#endif
+		for (int cIdx : n.children) {
+			ZQskeleton::traverse_skeleton(m, cIdx, d + 1);
+		}
+	}
+}
+
+void ZQskeleton::extract_skeleton(const tinygltf::Model& m) {
+	if (m.skins.empty()) {
+#ifdef DEBUG
+		std::cout << "No Skeleton data found!: " << this->name << std::endl;
+#endif
+		return;
+	}
+
+	for (size_t i = 0; i < m.skins.size(); i++) {
+		const tinygltf::Skin& s = m.skins[i];
+#ifdef DEBUG
+		std::cout << "Skeleton #" << i << " Name: " << s.name << std::endl;
+#endif
+
+		if (s.skeleton >= 0) {
+#ifdef DEBUG
+			std::cout << "Skeleton root node: " << s.skeleton << std::endl;
+#endif
+		}
+
+		if (s.inverseBindMatrices >= 0) {
+			const tinygltf::Accessor& acc = m.accessors[s.inverseBindMatrices];
+			const tinygltf::BufferView& bView = m.bufferViews[acc.bufferView];
+			const tinygltf::Buffer& buff = m.buffers[bView.buffer];
+
+			const float* mtxData = reinterpret_cast<const float*>(&(buff.data[acc.byteOffset + bView.byteOffset]));
+
+#ifdef DEBUG
+			std::cout << "Extracted " << acc.count << " Inverse Bind Matrices." << std::endl;
+#endif
+		}
+
+#ifdef DEBUG
+		std::cout << " ** Skeleton : **" << std::endl;
+#endif
+
+		std::vector<bool> is_child(s.joints.size(), false);
+		for (size_t j = 0; j < s.joints.size(); j++) {
+			
+			int jNodeIdx = s.joints[j];
+			for (int cIdx : m.nodes[jNodeIdx].children) {
+
+				for (size_t k = 0; k < s.joints.size(); k++) {
+					if (s.joints[k] == cIdx) {
+						is_child[k] = true;
+					}
+				}
+			}
+		}
+
+		for (size_t j = 0; j < s.joints.size(); j++) {
+			if (!is_child[j]) {
+				ZQskeleton::traverse_skeleton(m, s.joints[j], 0);
+			}
+		}
+	}
+}
+
+void ZQskeleton::extract_mesh_skin(const tinygltf::Model& m, const tinygltf::Primitive& prim) {
+
+	std::vector<tri_t> triangles;
+	if (prim.indices >= 0) {
+		const tinygltf::Accessor& idxAcc = m.accessors[prim.indices];
+		const tinygltf::BufferView& bView = m.bufferViews[idxAcc.bufferView];
+		const tinygltf::Buffer& buff = m.buffers[bView.buffer];
+
+		const unsigned char* dPtr = &(buff.data[idxAcc.byteOffset + bView.byteOffset]);
+		size_t stride = idxAcc.ByteStride(bView);
+
+		std::vector<uint_t> rIndices;
+		for (size_t i = 0; i < idxAcc.count; i++) {
+			uint_t idx = 0;
+
+			if (idxAcc.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT) {
+				idx = *reinterpret_cast<const uint_t*>(dPtr + i * stride);
+			}
+			else if (idxAcc.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
+				idx = *reinterpret_cast<const ushort_t*>(dPtr + i * stride);
+			}
+			else if (idxAcc.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE) {
+				idx = *reinterpret_cast<const uchar_t*>(dPtr + i * stride);
+			}
+
+			rIndices.push_back(idx);
+		}
+
+		for (size_t i = 0; i < rIndices.size(); i += 3) {
+			triangles.push_back(tri_t{ rIndices[i], rIndices[i + 1], rIndices[i + 2] });
+		}
+#ifdef DEBUG
+		std::cout << "Extracted " << triangles.size() << " triangles.\n";
+#endif
+	}
+}
+
+void ZQskeleton::load_from(const tinygltf::Model m) {
+	
+	if (m.skins.empty()) {
+#ifdef DEBUG
+		std::cout << "Cannot load model skeleton at " << this->path << std::endl;
+#endif
+		return;
+	}
+
+	const tinygltf::Skin& skn = m.skins[0];
+	
+	size_t bCount = skn.joints.size();
+
+
+
+	for (size_t i = 0; i < bCount; i++) {
+		int nIdx = skn.joints[i];
+		const tinygltf::Node& n = m.nodes[nIdx];
+
+		std::string bName = "";
+		if (n.name.empty()) {
+#ifdef DEBUG
+			std::cout << "Bone name empty!" << std::endl;
+#endif
+		}
+		else {
+			bName = n.name;
+			this->bone_name_table.insert({ bName, i });
+
+			ZQbone_t bone = {};
+			if (!n.translation.empty()) {
+#ifdef DEBUG
+				std::cout << "Bone #" << i << " position value empty!" << std::endl;
+#endif
+			}
+			else {
+				bone.end = vec3_t(static_cast<float>(n.translation[0]), static_cast<float>(n.translation[1]), static_cast<float>(n.translation[2]));
+			}
+
+			this->bones.push_back(bone);
+#ifdef DEBUG
+			std::cout << "Bone name " << bName << " added!" << std::endl;
+#endif
+		}
+	}
+
+}
+
+void ZQskeleton::load_skeleton(std::string path) {
+	tinygltf::Model raw_model;
+	tinygltf::TinyGLTF loader;
+
+	this->path = path;
+
+	bool r = false;
+	std::string error;
+	std::string warn;
+
+	r = loader.LoadBinaryFromFile(&raw_model, &error, &warn, this->path);
+
+	if (r) {
+		if (!error.empty()) {
+#ifdef DEBUG
+			std::cout << error << std::endl;
+#endif
+			return;
+		}
+		if (!warn.empty()) {
+#ifdef DEBUG
+			std::cout << warn << std::endl;
+#endif
+			return;
+		}
+		this->load_from(raw_model);
+	}
+	else {
+#ifdef DEBUG
+		std::cout << "Could not find model at: " << this->path << std::endl;
+#endif
+		return;
+	}
+}
+
+ZQskeleton::ZQskeleton(std::string path, std::string name) {
+	this->name = name;
+
+	this->load_skeleton(name);
+}*/
+
 void ZQmodel::load_data(const tinygltf::Model m) {
 	this->aabb[0] = vec3_t(std::numeric_limits<float>::max());
 	this->aabb[1] = vec3_t(-std::numeric_limits<float>::max());
@@ -374,6 +576,133 @@ void ZQmodel::load_data(const tinygltf::Model m) {
 	this->vtNormals = std::vector<vec3_t>(this->vCount);
 
 	this->tNormalsT = std::vector<vec3_t>(this->tCount);
+
+	std::vector<vec4_t> vWeights;
+	std::vector<uvec4_t> vJoints;
+
+	std::vector<gltfSkinData> temp_skin_data;
+
+	for (size_t j = 0; j < m.meshes.size(); j++) {
+		if (!m.meshes[j].primitives.empty()) {
+			for (size_t k = 0; k < m.meshes[j].primitives.size(); k++) {
+				const tinygltf::Primitive& prim = m.meshes[j].primitives[k];
+
+				auto jntAttr = prim.attributes.find("JOINTS_0");
+				auto wghtAttr = prim.attributes.find("WEIGHTS_0");
+
+				if (jntAttr != prim.attributes.end() && wghtAttr != prim.attributes.end()) {
+					const tinygltf::Accessor& jAcc = m.accessors[jntAttr->second];
+					const tinygltf::BufferView& jView = m.bufferViews[jAcc.bufferView];
+					const tinygltf::Buffer& jBuff = m.buffers[jView.buffer];
+					const uchar_t* jPtr = jBuff.data.data() + jView.byteOffset + jAcc.byteOffset;
+
+					const tinygltf::Accessor& wAcc = m.accessors[wghtAttr->second];
+					const tinygltf::BufferView& wView = m.bufferViews[wAcc.bufferView];
+					const tinygltf::Buffer& wBuff = m.buffers[wView.buffer];
+					const uchar_t* wPtr = wBuff.data.data() + wView.byteOffset + wAcc.byteOffset;
+
+					temp_skin_data.resize(jAcc.count);
+
+					for (size_t v = 0; v < jAcc.count; v++) {
+						if (jAcc.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE) {
+							const uint8_t* jnt = reinterpret_cast<const uint8_t*>(jPtr + v * jView.byteStride);
+
+							temp_skin_data[v].joints[0] = jnt[0];
+							temp_skin_data[v].joints[1] = jnt[1];
+							temp_skin_data[v].joints[2] = jnt[2];
+							temp_skin_data[v].joints[3] = jnt[3];
+						}
+						else if (jAcc.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
+							const uint16_t* jnt = reinterpret_cast<const uint16_t*>(jPtr + v * jView.byteStride);
+
+							temp_skin_data[v].joints[0] = jnt[0];
+							temp_skin_data[v].joints[1] = jnt[1];
+							temp_skin_data[v].joints[2] = jnt[2];
+							temp_skin_data[v].joints[3] = jnt[3];
+						}
+						else {
+							const uint32_t* jnt = reinterpret_cast<const uint32_t*>(jPtr + v * jView.byteStride);
+
+							temp_skin_data[v].joints[0] = jnt[0];
+							temp_skin_data[v].joints[1] = jnt[1];
+							temp_skin_data[v].joints[2] = jnt[2];
+							temp_skin_data[v].joints[3] = jnt[3];
+						}
+
+						const float* wght = reinterpret_cast<const float*>(wPtr + v *(wView.byteStride ? wView.byteStride : 16));
+						temp_skin_data[v].weights[0] = wght[0];
+						temp_skin_data[v].weights[1] = wght[1];
+						temp_skin_data[v].weights[2] = wght[2];
+						temp_skin_data[v].weights[2] = wght[3];
+					}
+				}
+
+			}
+		}
+	}
+
+	if (!m.skins.empty()) {
+		for (const tinygltf::Skin& skn : m.skins) {
+			for (size_t j = 0; j < skn.joints.size(); j++) {
+				
+				int nIdx = skn.joints[j];
+				const tinygltf::Node nde = m.nodes[nIdx];
+
+				ZQbone_t bone = {};
+
+				bone.name = nde.name.empty() ? "joint_" + std::to_string(j) : nde.name;
+
+				if (nde.translation.size() == 3) {
+					bone.end = vec3_t(
+						static_cast<float>(nde.translation[0]),
+						static_cast<float>(nde.translation[1]),
+						static_cast<float>(nde.translation[2])
+					);
+				}
+				else {
+					bone.end = vec3_t(0.0f, 0.0f, 0.0f);
+				}
+
+				const float wght_threshold = 0.01f;
+				for (size_t vIdx = 0; vIdx < temp_skin_data.size(); vIdx++) {
+					const gltfSkinData& data = temp_skin_data[vIdx];
+					for (uchar_t k = 0; k < 4; k++) {
+						
+						if (data.joints[k] == j && data.weights[k] > wght_threshold) {
+							bone.vertex_idxs.push_back(static_cast<uint_t>(vIdx));
+						}
+					}
+				}
+
+				this->bones.push_back(bone);
+				this->bone_name_table.emplace(bone.name, this->bones.size() - 1);
+
+#ifdef DEBUG
+				std::cout << "Adding bone \'" << bone.name << "\' at index " << this->bone_name_table[bone.name] << " = { " << bone.end.x << ", " << bone.end.y << ", " << bone.end.z << " } impacting " << bone.vertex_idxs.size() << " vertices." << std::endl;
+#endif
+
+				/*if (skn.inverseBindMatrices >= 0) {
+					const tinygltf::Accessor& acc = m.accessors[skn.inverseBindMatrices];
+					const tinygltf::BufferView& bView = m.bufferViews[acc.bufferView];
+					const tinygltf::Buffer& buff = m.buffers[bView.buffer];
+
+					this->inverse_bind_matrices.reserve(acc.count);
+
+					const unsigned char* dPtr = buff.data.data() + bView.byteOffset + acc.byteOffset;
+					size_t stride = acc.ByteStride(bView);
+
+					for (size_t i = 0; i < skn.joints.size(); i++) {
+						int nIdx = skn.joints[i];
+						std::string bName = m.nodes[nIdx].name;
+						m.nodes[nIdx].
+
+							this->bone_name_table[bName] = static_cast<size_t>(nIdx);
+					}
+				}*/
+			}
+		}
+	}
+
 }
 
 void ZQmodel::debug_print() {

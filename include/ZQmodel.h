@@ -89,25 +89,39 @@ ZQasset_static make_ZQasset(std::string, float, std::string, std::string, std::s
 extern const ulong_t MAX_BONE_CHILDREN;
 
 typedef struct {
+	uint_t joints[4];
+	float weights[4];
+} gltfSkinData;
+
+typedef struct {
 	std::string name;
 
 	vec3_t end;
 
 	std::vector<uint_t> vertex_idxs;
 
-	long_t children[8];
-	uchar_t children_count;
+	std::vector<std::string> children;
 } ZQbone_t;
 
-class ZQskeleton {
+/*class ZQskeleton {
 protected:
 	std::string name;
+	std::string path;
 
 	vec3_t origin;
+	std::map<std::string, size_t> bone_name_table;
 	std::vector<ZQbone_t> bones;
+	std::vector<mat4_t> inverse_bind_matrices;
+
+	void traverse_skeleton(const tinygltf::Model&, int, int);
+	void extract_skeleton(const tinygltf::Model&);
+	void extract_mesh_skin(const tinygltf::Model&, const tinygltf::Primitive&);
+
+	void load_from(const tinygltf::Model);
+	void load_skeleton(std::string);
 public:
-	ZQskeleton(std::string);
-};
+	ZQskeleton(std::string, std::string);
+};*/
 
 class ZQmodel {
 protected:
@@ -127,6 +141,11 @@ protected:
 	size_t tCount;
 
 	vec3_t aabb[2];
+
+	vec3_t origin;
+	std::map<std::string, size_t> bone_name_table;
+	std::vector<ZQbone_t> bones;
+	std::vector<mat4_t> inverse_bind_matrices;
 
 	void load_data(const tinygltf::Model);
 

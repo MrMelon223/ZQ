@@ -77,6 +77,9 @@
     <ClInclude Include="include\ZQtexture.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\ZQlighting.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="cuda\source\ZQrender.cu">
