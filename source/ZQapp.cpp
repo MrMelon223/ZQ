@@ -134,7 +134,7 @@ int Playerside::texture_callback(void* data, int argc, char** argv, char** azCol
 	return 0;
 }
 d_ZQmodel_c* Playerside::d_models_c;
-ZQasset_static* Playerside::d_static_assets;
+ZQasset* Playerside::d_static_assets;
 
 void ZQapp::load_assets() {
 	sqlite3* db;
@@ -310,8 +310,8 @@ bool isBoxInFrustum(const std::vector<glm::vec4>& planes, glm::vec3 min, glm::ve
 	return true;
 }
 
-std::vector<ZQasset_static_instance> ZQapp::compute_visibility(ZQcamera* cam) {
-	std::vector<ZQasset_static_instance> r = std::vector<ZQasset_static_instance>();
+std::vector<ZQasset_instance> ZQapp::compute_visibility(ZQcamera* cam) {
+	std::vector<ZQasset_instance> r = std::vector<ZQasset_instance>();
 
 	float pitch = glm::radians(cam->rotation.x);
 	float yaw = glm::radians(cam->rotation.y);
@@ -328,8 +328,8 @@ std::vector<ZQasset_static_instance> ZQapp::compute_visibility(ZQcamera* cam) {
 	std::vector<vec4_t> view_planes = getFrustumPlanes(viewProj);
 
 	for (ulong_t i = 0; i < Level::static_instances.size(); i++) {
-		ZQasset_static_instance* inst = &Level::static_instances[i];
-		ZQasset_static* asset = &Playerside::static_assets[inst->asset_idx];
+		ZQasset_instance* inst = &Level::static_instances[i];
+		ZQasset* asset = &Playerside::static_assets[inst->asset_idx];
 		ZQmodel* model = &Playerside::h_models[asset->lod0_idx];
 
 		vec3_t aabb_min = vec3_t(inst->position) + model->get_aabb_low();
@@ -373,7 +373,7 @@ std::vector<ZQasset_static_instance> ZQapp::compute_visibility(ZQcamera* cam) {
 		}
 	}
 
-	std::sort(r.begin(), r.end(), [cam](const ZQasset_static_instance& a, const ZQasset_static_instance& b) {
+	std::sort(r.begin(), r.end(), [cam](const ZQasset_instance& a, const ZQasset_instance& b) {
 		vec3_t distA = vec3_t(a.position - cam->position);
 		vec3_t distB = vec3_t(b.position - cam->position);
 
@@ -635,7 +635,7 @@ void ZQapp::main_loop() {
 		CUDArender::cleanup_visibility(vis);
 #endif
 #ifndef CUDA_RT
-		std::vector<ZQasset_static_instance> static_list = compute_visibility(&this->camera);
+		std::vector<ZQasset_instance> static_list = compute_visibility(&this->camera);
 		for (ulong_t i = 0; i < static_list.size(); i++) {
 			draw(&this->camera, &static_list[i], &Playerside::shader_programs[0]);
 		}
@@ -690,8 +690,8 @@ void ZQapp::main_loop() {
 	SDL_Quit();
 }
 
-void draw(ZQcamera* cam, ZQasset_static_instance* mod, ZQshader_program* prog) {
-	ZQasset_static* asset = &Playerside::static_assets[mod->asset_idx];
+void draw(ZQcamera* cam, ZQasset_instance* mod, ZQshader_program* prog) {
+	ZQasset* asset = &Playerside::static_assets[mod->asset_idx];
 #ifdef DEBUG
 	std::cout << "Camera rot: { " << cam->rotation.x << ", " << cam->rotation.y << " }" << std::endl;
 #endif

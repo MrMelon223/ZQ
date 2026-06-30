@@ -2,7 +2,6 @@
 #define ZQLEVEL_H
 
 #include "ZQshader.h"
-#include "ZQmodel.h"
 #include "ZQtexture.h"
 
 namespace Playerside {
@@ -20,8 +19,8 @@ namespace Playerside {
 
 	ulong_t find_model_idx(std::string);
 
-	extern std::vector<ZQasset_static> static_assets;
-	extern ZQasset_static* d_static_assets;
+	extern std::vector<ZQasset> static_assets;
+	extern ZQasset* d_static_assets;
 	static int asset_callback(void*, int, char**, char**);
 
 	ulong_t find_asset_idx(std::string);
@@ -30,14 +29,13 @@ namespace Playerside {
 	static int texture_callback(void*, int, char**, char**);
 
 	ulong_t find_texture_idx(std::string);
-
 }
 
 namespace Level {
 	extern std::vector<ZQmodel_instance> instances;
 
-	extern std::vector<ZQasset_static_instance> static_instances;
-	extern ZQasset_static_instance* d_static_instances;
+	extern std::vector<ZQasset_instance> static_instances;
+	extern ZQasset_instance* d_static_instances;
 }
 
 class ZQlevel {
@@ -52,5 +50,21 @@ public:
 	ZQlevel();
 	ZQlevel(std::string);
 };
+
+typedef enum {
+	SHADOW_DEFAULT		= 0,
+	SHADOW_HORIZONTAL	= 1,
+	SHADOW_VERTICAL		= 2,
+	SHADOW_LARGE		= 3
+} ShadowIdx;
+
+namespace RenderSettings {
+	extern double shadow_res_proportion;
+
+	extern double viewport_res_hori;
+	extern double viewport_res_vert;
+
+	extern dim_t shadow_dims[4];
+}
 
 #endif

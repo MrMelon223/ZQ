@@ -16,6 +16,5 @@ out vec2 texcoord;
 void main() {
 
    gl_Position = matVP * matCam * matGeo  * vec4(pos, 1.0);
-   texcoord = uv;
 
 }

@@ -39,7 +39,7 @@ ulong_t Playerside::find_texture_idx(std::string name) {
 }
 
 std::vector<ZQmodel_instance> Level::instances = std::vector<ZQmodel_instance>();
-std::vector<ZQasset_static_instance> static_instances = std::vector<ZQasset_static_instance>();
+std::vector<ZQasset_instance> static_instances = std::vector<ZQasset_instance>();
 
 void ZQlevel::load_from(std::string path) {
 	std::ifstream f(path.c_str(), std::ios::in | std::ios::binary);
@@ -120,7 +120,7 @@ void ZQlevel::load_from(std::string path) {
 			f.get(cha);
 			name.push_back(cha);
 		}
-		ZQasset_static_instance aInst{};
+		ZQasset_instance aInst{};
 
 		aInst.asset_idx = Playerside::find_asset_idx(name);
 		aInst.position = pos;
@@ -140,12 +140,12 @@ void ZQlevel::load_from(std::string path) {
 #endif
 }
 
-std::vector<ZQasset_static> Playerside::static_assets = std::vector<ZQasset_static>();
-std::vector<ZQasset_static_instance> Level::static_instances = std::vector<ZQasset_static_instance>();
-ZQasset_static_instance* Level::d_static_instances;
+std::vector<ZQasset> Playerside::static_assets = std::vector<ZQasset>();
+std::vector<ZQasset_instance> Level::static_instances = std::vector<ZQasset_instance>();
+ZQasset_instance* Level::d_static_instances;
 
-ZQasset_static make_ZQasset(std::string name, float scale, std::string lod0name, std::string lod1name, std::string lod2name, std::string lod3name, std::string materialname) {
-	ZQasset_static r{};
+ZQasset make_ZQasset(std::string name, float scale, std::string lod0name, std::string lod1name, std::string lod2name, std::string lod3name, std::string materialname) {
+	ZQasset r{};
 	r.scale = scale;
 	r.name = name;
 
@@ -168,3 +168,13 @@ ZQlevel::ZQlevel(std::string path) {
 
 	this->load_from(this->filepath);
 }
+
+double RenderSettings::shadow_res_proportion = 1.0;
+
+double RenderSettings::viewport_res_hori = 1.0;
+double RenderSettings::viewport_res_vert = 1.0;
+
+dim_t RenderSettings::shadow_dims[4] = { dim_t(64, 64),
+										dim_t(128, 64),
+										dim_t(64, 128),
+										dim_t(128, 128) };

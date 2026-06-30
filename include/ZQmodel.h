@@ -67,7 +67,7 @@ struct ZQmodel_instance {
 	vec3_t rotation;
 };
 
-struct ZQasset_static {
+struct ZQasset {
 	std::string name;
 	float scale;
 	ulong_t lod0_idx;
@@ -78,13 +78,13 @@ struct ZQasset_static {
 
 };
 
-struct ZQasset_static_instance {
+struct ZQasset_instance {
 	ulong_t asset_idx;
 	dvec3_t position;
 	vec3_t rotation;
 };
 
-ZQasset_static make_ZQasset(std::string, float, std::string, std::string, std::string, std::string, std::string);
+ZQasset make_ZQasset(std::string, float, std::string, std::string, std::string, std::string, std::string);
 
 extern const ulong_t MAX_BONE_CHILDREN;
 

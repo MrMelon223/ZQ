@@ -57,7 +57,7 @@ protected:
 
 	ZQlevel* level;
 
-	std::vector<ZQasset_static_instance> compute_visibility(ZQcamera*);
+	std::vector<ZQasset_instance> compute_visibility(ZQcamera*);
 
 	float last_time;
 	ulong_t prev_counter;
@@ -74,6 +74,6 @@ public:
 };
 
 
-void draw(ZQcamera*, ZQasset_static_instance*, ZQshader_program*);
+void draw(ZQcamera*, ZQasset_instance*, ZQshader_program*);
 
 #endif

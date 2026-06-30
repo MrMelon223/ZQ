@@ -1,6 +1,7 @@
 #ifndef ZQSHADER_H
 #define ZQSHADER_H
 
+#include "ZQlighting.h"
 #include "ZQmodel.h"
 
 class ZQshader_program{
