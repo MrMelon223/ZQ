@@ -36,6 +36,8 @@ namespace Level {
 
 	extern std::vector<ZQasset_instance> static_instances;
 	extern ZQasset_instance* d_static_instances;
+
+	extern std::vector<ZQdynamic_spot_light> spot_lights;
 }
 
 class ZQlevel {
@@ -51,20 +53,13 @@ public:
 	ZQlevel(std::string);
 };
 
-typedef enum {
-	SHADOW_DEFAULT		= 0,
-	SHADOW_HORIZONTAL	= 1,
-	SHADOW_VERTICAL		= 2,
-	SHADOW_LARGE		= 3
-} ShadowIdx;
-
 namespace RenderSettings {
 	extern double shadow_res_proportion;
 
 	extern double viewport_res_hori;
 	extern double viewport_res_vert;
 
-	extern dim_t shadow_dims[4];
+	extern long_t shadow_dims_hori[4];
 }
 
 #endif

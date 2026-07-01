@@ -132,6 +132,130 @@ void ZQlevel::load_from(std::string path) {
 #endif
 	}
 
+	delete[] c;
+
+	size_t light_len;
+	c = new char[sizeof(size_t)];
+	f.read(c, sizeof(size_t));
+	memcpy(&light_len, c, sizeof(size_t));
+
+	for (size_t i = 0; i < light_len; i++) {
+		dvec3_t lPosition;
+		vec3_t lForward;
+		vec2_t lFov;
+		float falloff;
+		float range;
+		float roundness;
+		float intensity;
+		color_t diff_color;
+		color_t spec_color;
+		uchar_t shad_type;
+
+		char* ch = new char[sizeof(dvec3_t)];
+		f.read(ch, sizeof(dvec3_t));
+		memcpy(&lPosition, ch, sizeof(dvec3_t));
+		delete[] ch;
+
+		ch = new char[sizeof(vec3_t)];
+		f.read(ch, sizeof(vec3_t));
+		memcpy(&lForward, ch, sizeof(vec3_t));
+		delete[] ch;
+
+		ch = new char[sizeof(vec2_t)];
+		f.read(ch, sizeof(vec2_t));
+		memcpy(&lFov, ch, sizeof(vec2_t));
+		delete[] ch;
+
+		ch = new char[sizeof(float)];
+		f.read(ch, sizeof(float));
+		memcpy(&falloff, ch, sizeof(float));
+		delete[] ch;
+
+		ch = new char[sizeof(float)];
+		f.read(ch, sizeof(float));
+		memcpy(&range, ch, sizeof(float));
+		delete[] ch;
+
+		ch = new char[sizeof(float)];
+		f.read(ch, sizeof(float));
+		memcpy(&roundness, ch, sizeof(float));
+		delete[] ch;
+
+		ch = new char[sizeof(float)];
+		f.read(ch, sizeof(float));
+		memcpy(&intensity, ch, sizeof(float));
+		delete[] ch;
+
+		ch = new char[sizeof(color_t)];
+		f.read(ch, sizeof(color_t));
+		memcpy(&diff_color, ch, sizeof(color_t));
+		delete[] ch;
+
+		ch = new char[sizeof(color_t)];
+		f.read(ch, sizeof(color_t));
+		memcpy(&spec_color, ch, sizeof(color_t));
+		delete[] ch;
+
+		ch = new char[sizeof(uchar_t)];
+		f.read(ch, sizeof(uchar_t));
+		memcpy(&shad_type, ch, sizeof(uchar_t));
+		delete[] ch;
+
+		ShadowSize size = SHADOW_SMALL;
+
+		switch (shad_type) {
+		case 0:
+			size = SHADOW_SMALL;
+			break;
+		case 1:
+			size = SHADOW_MEDIUM;
+			break;
+		case 2:
+			size = SHADOW_LARGE;
+			break;
+		case 3:
+			size = SHADOW_MEGA;
+			break;
+		default:
+			size = SHADOW_SMALL;
+			break;
+		}
+
+		ZQdynamic_spot_light r = {lPosition, lForward, lFov, falloff, range, roundness, intensity, diff_color, spec_color, size, 0};
+
+		long_t shad_width = RenderSettings::shadow_dims_hori[size] * RenderSettings::shadow_res_proportion;
+		long_t shad_height = shad_width * (lFov.y / lFov.x) * RenderSettings::shadow_res_proportion;
+
+		glGenTextures(1, &r.depth_map);
+		glBindTexture(GL_TEXTURE_2D, r.depth_map);
+
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, static_cast<size_t>(shad_width), static_cast<size_t>(shad_height), 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+		float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+		glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+
+			// Framebuffer Object
+		glGenFramebuffers(1, &r.depth_map_fbo);
+		glBindFramebuffer(GL_FRAMEBUFFER, r.depth_map_fbo);
+
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, r.depth_map, 0);
+		glDrawBuffer(GL_NONE);
+		glReadBuffer(GL_NONE);
+
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+#ifdef DEBUG
+			std::cout << "Error: Framebuffer is not complete!" << std::endl;
+#endif
+		}
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	}
+
 #ifdef CUDA_RT
 	cudaMalloc((void**)&Level::d_static_instances, sizeof(ZQasset_static_instance) * Level::static_instances.size());
 
@@ -143,6 +267,7 @@ void ZQlevel::load_from(std::string path) {
 std::vector<ZQasset> Playerside::static_assets = std::vector<ZQasset>();
 std::vector<ZQasset_instance> Level::static_instances = std::vector<ZQasset_instance>();
 ZQasset_instance* Level::d_static_instances;
+std::vector<ZQdynamic_spot_light> Level::spot_lights = std::vector<ZQdynamic_spot_light>();
 
 ZQasset make_ZQasset(std::string name, float scale, std::string lod0name, std::string lod1name, std::string lod2name, std::string lod3name, std::string materialname) {
 	ZQasset r{};
@@ -174,7 +299,4 @@ double RenderSettings::shadow_res_proportion = 1.0;
 double RenderSettings::viewport_res_hori = 1.0;
 double RenderSettings::viewport_res_vert = 1.0;
 
-dim_t RenderSettings::shadow_dims[4] = { dim_t(64, 64),
-										dim_t(128, 64),
-										dim_t(64, 128),
-										dim_t(128, 128) };
+long_t RenderSettings::shadow_dims_hori[4] = { 64, 96, 128, 256 };

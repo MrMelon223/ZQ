@@ -130,7 +130,7 @@ def main():
                     imgui.text("Level-of-Detail (LOD):");
                 with imgui.font(courier_prime_reg24):
                     ##changed_lod0, lod0 = imgui.input_text("lod0 (closest)", asset_lod0s[idx], 1024);
-                    expanded_lod0, current_item = imgui.combo("lod0 (closest", get_model_idx(asset_lod0s[idx]), model_names);
+                    expanded_lod0, current_item = imgui.combo("lod0 (closest)", get_model_idx(asset_lod0s[idx]), model_names);
                     if expanded_lod0:
                         asset_lod0s[idx] = model_names[current_item];
 
@@ -267,7 +267,7 @@ def main():
         impl.process_inputs();
 
         gl.glClearColor(0.1, 0.1, 0.1, 1.0);
-        gl.glClear(gl.GL_COLOR_BUFFER_BIT);
+        gl.glClear(gl.GL_COLOR_BUFFER_BIT or gl.GL_DEPTH_BUFFER_BIT);
 
         imgui.new_frame();
         

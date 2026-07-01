@@ -3,6 +3,13 @@
 
 #include "ZQhelper.h"
 
+typedef enum {
+	SHADOW_SMALL = 0,
+	SHADOW_MEDIUM = 1,
+	SHADOW_LARGE = 2,
+	SHADOW_MEGA = 3
+} ShadowSize;
+
 typedef struct {
 	dvec3_t position;
 	vec3_t forward;
@@ -15,7 +22,9 @@ typedef struct {
 	color_t diffuse_color;
 	color_t specular_color;
 
+	ShadowSize shadow_max_h_res;
 	GLuint depth_map;
+	GLuint depth_map_fbo;
 } ZQdynamic_spot_light;
 
 typedef struct {
